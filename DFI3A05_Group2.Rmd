@@ -1,0 +1,650 @@
+---
+title: "GlobNex Analytics Research Report - Group"
+date: "23rd July 2019"
+output: 
+  html_document:
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE, out.width='100%'}
+knitr::include_graphics('GlobNex Logo 1.JPG')
+```
+
+# Predictive Analytics 2 CA2
+* *Kelly Chin (P1724466)*
+* *Muhammad Shaywal (P1724424)*
+* *Jolene Ng (P1724578)*
+* *Karen Tan (P1724763)*
+* *Tan Hui Wen (P1724846)*
+* *Aaron Low (P1724549)*
+
+## 1. Introduction
+We are a group of interns in-charged of Predicitive Analysis for R. This Report will highlight the analysis of how we make use of the HDB Resale Prices data and use the best of possible suitable predictive model to forcast the resale price for the next three years with a low AIC. 
+
+## 2. Headlines
+* 
+*HDB Resale Flat May Face Challenges for Investments Purpose*
+*
+
+## Headline 2 - Insight 2
+### Description of Insight 
+The data used in this data visualisation is HDB Resale Prices where the visualisation will show the HDB resale flat may face challenges for investment purpose. 
+
+#### i. Loading necessary packages 
+```{r echo=T,results='hide'}
+library(purrr)
+library(dplyr)
+library(highcharter)
+library(tidyverse)
+library(plotly)
+```
+#### ii. Loading Data 
+```{r Load Data}
+#Load HDB Data 
+hdbdata <- read.csv("HDB Resale Prices.csv")
+str(hdbdata)
+```
+
+#### iii. Clustering Data by Region 
+```{r Cluster Data by Region}
+#Cluster the town into respective region and create a new column called "Region"
+hdbdata$Region <- ifelse(hdbdata$town=="JURONG WEST"|hdbdata$town=="CHOA CHU KANG"|hdbdata$town=="BUKIT PANJANG"|hdbdata$town=="CLEMENTI"|hdbdata$town=="JURONG EAST"|hdbdata$town=="BUKIT BATOK","West",ifelse(hdbdata$town=="BEDOK"|hdbdata$town=="TAMPINES"|hdbdata$town=="PASIR RIS","East",ifelse(hdbdata$town=="ANG MO KIO"|hdbdata$town=="HOUGANG"|hdbdata$town=="SERANGOON"|hdbdata$town=="SENGKANG"|hdbdata$town=="PUNGGOL","North-East",ifelse(hdbdata$town=="LIM CHU KANG"|hdbdata$town=="SEMBAWANG"|hdbdata$town=="WOODLANDS"|hdbdata$town=="YISHUN","North","Central"))))
+str(hdbdata)
+```
+
+#### iv. Extract Year from Date
+```{r Extract Year from Date}
+#Extract year from the month and create new column "Year"
+hdbdata$Year <- substr(hdbdata$month,1,4)
+str(hdbdata)
+```
+
+#### v. Finding Remaining Flat Lease
+```{r Remaining Flat Lease}
+#Current year - Lease_Commencement_Date 
+Flat_Age <- 2017 - hdbdata$lease_commence_date
+Remaining_Flat_Lease <- 99 - Flat_Age
+hdbdata <- cbind(hdbdata,Remaining_Flat_Lease)
+str(hdbdata)
+```
+
+#### vi. Grouping of Remaining Lease
+```{r Grouping Remaining Flat Lease}
+#Group of remaining lease 
+hdbdata$Lease_period <-ifelse(hdbdata$Remaining_Flat_Lease<40,"Less than 40",ifelse(hdbdata$Remaining_Flat_Lease>=40 & hdbdata$Remaining_Flat_Lease <50,"40-49",ifelse(hdbdata$Remaining_Flat_Lease>=50 & hdbdata$Remaining_Flat_Lease<60,"50-59",ifelse(hdbdata$Remaining_Flat_Lease>=60 & hdbdata$Remaining_Flat_Lease<70,"60-69","70 & above"))))
+str(hdbdata)
+```
+
+#### vii. Convert Data into Dataframe
+```{r Convert data into Dataframe}
+#Convert data into Dataframe 
+hdbdata <- as.data.frame(hdbdata)
+str(hdbdata)
+```
+
+#### viii. Plotly Line Graph
+```{r echo=TRUE}
+grp_by_year <- hdbdata %>%
+  select(Year,resale_price)%>%
+  group_by(Year)%>%
+  summarise(resale_price=mean(resale_price))
+
+Resale_Price <-plot_ly(grp_by_year,x=grp_by_year$Year,y=grp_by_year$resale_price,type="scatter",mode="line")%>%
+  layout(title="Average Resale Price between 1990 to 2017",
+         xaxis=list(title="Years"),
+         yaxis=list(title="Resale Price"))
+Resale_Price
+```
+
+#### ix. Plotly Pie Chart on Remaining Lease Year
+```{r echo=TRUE}
+grp_by_lease <- hdbdata %>%
+  select(Lease_period)%>%
+  group_by(Lease_period)%>%
+  summarise(count=n())
+
+Groupbylease <- plot_ly(grp_by_lease,labels=~grp_by_lease$Lease_period,values=~grp_by_lease$count,type="pie")%>%
+  layout(title="Remaining Lease Year for HDB Resale Flats",
+         xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+
+Groupbylease
+```
+
+#### x. Highcharter Interactive Chart 
+```{r echo=TRUE}
+#Drill Down by Region by Remaining Lease for HDB Resale Flats
+#Grouping of region by the number of resale flats 
+grping_region <- hdbdata %>%
+  select(Region)%>%
+  group_by(Region)%>%
+  summarise(countflats=n())
+grping_region
+
+region_values <- hdbdata %>%
+  select(Region)%>%
+  group_by(Region)%>%
+  summarise(countflats=n())
+region_values
+
+df1 <- tibble(
+  name=grping_region$Region,
+  y=region_values$countflats,
+  drilldown=tolower(name)
+)
+df1
+
+#Level 1 Drill Down 
+#West Drill Down
+westdf <- filter(hdbdata,hdbdata$Region=="West")
+
+westdf2 <- westdf %>%
+  select(Lease_period)%>%
+  group_by(Lease_period)%>%
+  summarise(countlease=n())
+
+West <- tibble(
+  name=westdf2$Lease_period,
+  y=westdf2$countlease,
+  drilldown=tolower(name)
+)
+
+West
+
+#East Drill Down
+eastdf <- filter(hdbdata,hdbdata$Region=="East")
+
+eastdf2 <- eastdf %>%
+  select(Lease_period)%>%
+  group_by(Lease_period)%>%
+  summarise(countlease=n())
+
+East <- tibble(
+  name=eastdf2$Lease_period,
+  y=eastdf2$countlease,
+  drilldown=tolower(name)
+)
+
+East
+
+#Central Drill Down 
+centraldf <- filter(hdbdata,hdbdata$Region=="Central")
+
+centraldf2 <- centraldf %>%
+  select(Lease_period)%>%
+  group_by(Lease_period)%>%
+  summarise(countlease=n())
+
+Central <- tibble(
+  name=centraldf2$Lease_period,
+  y=centraldf2$countlease,
+  drilldown=tolower(name)
+)
+
+Central
+
+#North-East Drill Down 
+nedf <- filter(hdbdata,hdbdata$Region=="North-East")
+
+nedf2 <- nedf %>%
+  select(Lease_period)%>%
+  group_by(Lease_period)%>%
+  summarise(countlease=n())
+
+Northeast <- tibble(
+  name=nedf2$Lease_period,
+  y=nedf2$countlease,
+  drilldown=tolower(name)
+)
+
+Northeast
+
+#North Drill Down 
+northdf <- filter(hdbdata,hdbdata$Region=="North")
+
+northdf2 <- northdf %>%
+  select(Lease_period)%>%
+  group_by(Lease_period)%>%
+  summarise(countlease=n())
+
+North <- tibble(
+  name=northdf2$Lease_period,
+  y=northdf2$countlease,
+  drilldown=tolower(name)
+)
+
+North
+
+#Level 2 Drill Down by Flat Type
+
+#Central Region 
+#Remaining Lease of 40-49
+firstcentral <- filter(hdbdata,hdbdata$Region=="Central" & hdbdata$Lease_period=="40-49")
+
+firstcentral2 <- firstcentral%>%
+  select(flat_type,resale_price)%>%
+  group_by(flat_type)%>%
+  summarise(resale_price=mean(resale_price))
+
+firstcentral3 <- tibble(
+  name=firstcentral2$flat_type,
+  y=round(firstcentral2$resale_price,digits=0)
+)
+firstcentral3
+
+#Remaining Lease of 50-59
+secondcentral <- filter(hdbdata,hdbdata$Region=="Central" & hdbdata$Lease_period=="50-59")
+
+secondcentral2 <- secondcentral%>%
+  select(flat_type,resale_price)%>%
+  group_by(flat_type)%>%
+  summarise(resale_price=mean(resale_price))
+
+secondcentral3 <- tibble(
+  name=secondcentral2$flat_type,
+  y=round(secondcentral2$resale_price,digits=0)
+)
+secondcentral3
+
+#Remaining Lease of 60-69
+thirdcentral <- filter(hdbdata,hdbdata$Region=="Central" & hdbdata$Lease_period=="60-69")
+
+thirdcentral2 <- thirdcentral%>%
+  select(flat_type,resale_price)%>%
+  group_by(flat_type)%>%
+  summarise(resale_price=mean(resale_price))
+
+thirdcentral3 <- tibble(
+  name=thirdcentral2$flat_type,
+  y=round(thirdcentral2$resale_price,digits=0)
+)
+thirdcentral3
+
+#Remaining Lease of 70 & above 
+forthcentral <- filter(hdbdata,hdbdata$Region=="Central" & hdbdata$Lease_period=="70 & above")
+
+forthcentral2 <- forthcentral%>%
+  select(flat_type,resale_price)%>%
+  group_by(flat_type)%>%
+  summarise(resale_price=mean(resale_price))
+
+forthcentral3 <- tibble(
+  name=forthcentral2$flat_type,
+  y=round(forthcentral2$resale_price,digits=0)
+)
+forthcentral3
+
+#East Region
+#Remaining Lease of 50-59
+firsteast <- filter(hdbdata,hdbdata$Region=="East" & hdbdata$Lease_period=="50-59")
+
+firsteast2 <- firsteast%>%
+  select(flat_type,resale_price)%>%
+  group_by(flat_type)%>%
+  summarise(resale_price=mean(resale_price))
+
+firsteast3 <- tibble(
+  name=firsteast2$flat_type,
+  y=round(firsteast2$resale_price,digits=0)
+)
+firsteast3
+
+#Remaining Lease of 60-69
+secondeast <- filter(hdbdata,hdbdata$Region=="East" & hdbdata$Lease_period=="60-69")
+
+secondeast2 <- secondeast%>%
+  select(flat_type,resale_price)%>%
+  group_by(flat_type)%>%
+  summarise(resale_price=mean(resale_price))
+
+secondeast3 <- tibble(
+  name=secondeast2$flat_type,
+  y=round(secondeast2$resale_price,digits=0)
+)
+secondeast3
+
+#Remaining Lease of 70 & above
+thirdeast <- filter(hdbdata,hdbdata$Region=="East" & hdbdata$Lease_period=="70 & above")
+
+thirdeast2 <- thirdeast%>%
+  select(flat_type,resale_price)%>%
+  group_by(flat_type)%>%
+  summarise(resale_price=mean(resale_price))
+
+thirdeast3 <- tibble(
+  name=thirdeast2$flat_type,
+  y=round(thirdeast2$resale_price,digits=0)
+)
+thirdeast3
+
+#North Region
+#Remaining Lease of 50-59
+firstnorth <- filter(hdbdata,hdbdata$Region=="North" & hdbdata$Lease_period=="50-59")
+
+firstnorth2 <- firstnorth%>%
+  select(flat_type,resale_price)%>%
+  group_by(flat_type)%>%
+  summarise(resale_price=mean(resale_price))
+
+firstnorth3 <- tibble(
+  name=firstnorth2$flat_type,
+  y=round(firstnorth2$resale_price,digits=0)
+)
+firstnorth3
+
+#Remaining Lease of 60-69
+secondnorth <- filter(hdbdata,hdbdata$Region=="North" & hdbdata$Lease_period=="60-69")
+
+secondnorth2 <- secondnorth%>%
+  select(flat_type,resale_price)%>%
+  group_by(flat_type)%>%
+  summarise(resale_price=mean(resale_price))
+
+secondnorth3 <- tibble(
+  name=secondnorth2$flat_type,
+  y=round(secondnorth2$resale_price,digits=0)
+)
+secondnorth3
+
+#Remaining Lease of 70 & above
+thirdnorth <- filter(hdbdata,hdbdata$Region=="North" & hdbdata$Lease_period=="70 & above")
+
+thirdnorth2 <- thirdnorth%>%
+  select(flat_type,resale_price)%>%
+  group_by(flat_type)%>%
+  summarise(resale_price=mean(resale_price))
+
+thirdnorth3 <- tibble(
+  name=thirdnorth2$flat_type,
+  y=round(thirdnorth2$resale_price,digits=0)
+)
+thirdnorth3
+
+#North-East Region
+#Remaining Lease of 50-59
+firstnorthe <- filter(hdbdata,hdbdata$Region=="North-East" & hdbdata$Lease_period=="50-59")
+
+firstnorthe2 <- firstnorthe%>%
+  select(flat_type,resale_price)%>%
+  group_by(flat_type)%>%
+  summarise(resale_price=mean(resale_price))
+
+firstnorthe3 <- tibble(
+  name=firstnorthe2$flat_type,
+  y=round(firstnorthe2$resale_price,digits=0)
+)
+firstnorthe3
+
+#Remaining Lease of 60-69
+secondnorthe <- filter(hdbdata,hdbdata$Region=="North-East" & hdbdata$Lease_period=="60-69")
+
+secondnorthe2 <- secondnorthe%>%
+  select(flat_type,resale_price)%>%
+  group_by(flat_type)%>%
+  summarise(resale_price=mean(resale_price))
+
+secondnorthe3 <- tibble(
+  name=secondnorthe2$flat_type,
+  y=round(secondnorthe2$resale_price,digits=0)
+)
+secondnorthe3
+
+#Remaining Lease of 70 & above
+thirdnorthe <- filter(hdbdata,hdbdata$Region=="North-East" & hdbdata$Lease_period=="70 & above")
+
+thirdnorthe2 <- thirdnorthe%>%
+  select(flat_type,resale_price)%>%
+  group_by(flat_type)%>%
+  summarise(resale_price=mean(resale_price))
+
+thirdnorthe3 <- tibble(
+  name=thirdnorthe2$flat_type,
+  y=round(thirdnorthe2$resale_price,digits=0)
+)
+thirdnorthe3
+
+#West Region
+#Remaining Lease of 40-49
+firstwest <- filter(hdbdata,hdbdata$Region=="West" & hdbdata$Lease_period=="40-49")
+
+firstwest2 <- firstwest %>%
+  select(flat_type,resale_price)%>%
+  group_by(flat_type)%>%
+  summarise(resale_price=mean(resale_price))
+
+firstwest3 <- tibble(
+  name=firstwest2$flat_type,
+  y=round(firstwest2$resale_price,digits=0)
+)
+firstwest3
+
+#Remaining Lease of 50-59
+secondwest <- filter(hdbdata,hdbdata$Region=="West" & hdbdata$Lease_period=="50-59")
+
+secondwest2 <- secondwest %>%
+  select(flat_type,resale_price)%>%
+  group_by(flat_type)%>%
+  summarise(resale_price=mean(resale_price))
+
+secondwest3 <- tibble(
+  name=secondwest2$flat_type,
+  y=round(secondwest2$resale_price,digits=0)
+)
+secondwest3
+
+#Remaining Lease of 60-69
+thirdwest <- filter(hdbdata,hdbdata$Region=="West" & hdbdata$Lease_period=="50-59")
+
+thirdwest2 <- thirdwest %>%
+  select(flat_type,resale_price)%>%
+  group_by(flat_type)%>%
+  summarise(resale_price=mean(resale_price))
+
+thirdwest3 <- tibble(
+  name=thirdwest2$flat_type,
+  y=round(thirdwest2$resale_price,digits=0)
+)
+thirdwest3
+
+#Remaining Lease of 70 & above
+forthwest <- filter(hdbdata,hdbdata$Region=="West" & hdbdata$Lease_period=="70 & above")
+
+forthwest2 <- forthwest %>%
+  select(flat_type,resale_price)%>%
+  group_by(flat_type)%>%
+  summarise(resale_price=mean(resale_price))
+
+forthwest3 <- tibble(
+  name=forthwest2$flat_type,
+  y=round(forthwest2$resale_price,digits=0)
+)
+forthwest3
+
+#Combining First & Second chart 
+FlatLease<- highchart() %>%
+  hc_chart(events=list(
+    load = JS("function() {console.log(this)}"),
+    drilldown = JS("function(e) {
+                   if(e.seriesOptions.id == 'central'){
+                   this.update({title: {text:'Number of Remaining Lease Year Left for HDB Resale Flat in Central'}})
+                   }if(e.seriesOptions.id == 'east'){
+                   this.update({title: {text:'Number of Remaining Lease Year Left for HDB Resale Flat in East'}})
+                   }if(e.seriesOptions.id == 'north'){
+                   this.update({title: {text:'Number of Remaining Lease Year Left for HDB Resale Flat in North'}})
+                   }if(e.seriesOptions.id == 'north east'){
+                   this.update({title: {text:'Number of Remaining Lease Year Left for HDB Resale Flat in North-East'}})
+                   }if(e.seriesOptions.id == 'west'){
+                   this.update({title: {text:'Number of Remaining Lease Year Left for HDB Resale Flat in West'}})
+                   }if(e.seriesOptions.name == 'Resale Price'){
+                   this.update({title: {text:'Average Resale Price of Remaining Lease Flat'}})
+                   }
+                   }"),
+    drillup = JS("function(e) {if(e.seriesOptions.id == 'central'){
+                   this.update({title: {text:'Number of flats in Central'}})
+                   }if(e.seriesOptions.id == 'east'){
+                   this.update({title: {text:'Number of flats in East'}})
+                   }if(e.seriesOptions.id == 'north'){
+                   this.update({title: {text:'Number of flats in North'}})
+                   }if(e.seriesOptions.id == 'north east'){
+                   this.update({title: {text:'Number of flats in North-East'}})
+                   }if(e.seriesOptions.id == 'west'){
+                   this.update({title: {text:'Number of flats in West'}})
+                   }if(e.seriesOptions.name == '1990 to 2017'){
+                   this.update({title: {text:'Number of flats in each region'}})
+                   }}")
+  )) %>%
+  hc_title(text = "Number of Resale Flats in Each Region") %>%
+  hc_subtitle(text="HDB Data Graph") %>%
+  hc_xAxis(type = "category") %>%
+  hc_legend(enabled = TRUE) %>%
+  hc_tooltip(crosshairs = FALSE, backgroundColor = "white",
+             shared = FALSE, borderWidth = 2)%>%
+  hc_add_theme(hc_theme_flat())%>%
+  hc_plotOptions(
+    series = list(
+      boderWidth = 0,
+      dataLabels = list(enabled = TRUE)
+    )
+  ) %>%
+  hc_add_series(
+    data = df1,
+    type="column",
+    name = "1990 to 2017",
+    colorByPoint = TRUE
+  ) %>%
+  hc_drilldown(
+    allowPointDrilldown = TRUE,series = list(list(name="West (1990 to 2017)",id="west",data=list_parse(West)),
+                                             list(name="East (1990 to 2017)",id="east",data=list_parse(East)),
+                                             list(name="Central (1990 to 2017)",id="central",data=list_parse(Central)),
+                                             list(name="North-East (1990 to 2017)",id="north-east",data=list_parse(Northeast)),
+                                             list(name="North (1990 to 2017)",id="north",data=list_parse(North)),
+                                             list(name="Resale Price",id="40-49",data=list_parse(firstcentral3)),
+                                             list(name="Resale Price",id="50-59",data=list_parse(secondcentral3)),
+                                             list(name="Resale Price",id="60-69",data=list_parse(thirdcentral3)),
+                                             list(name="Resale Price",id="70 & above",data=list_parse(forthcentral3)),
+                                             list(name="Resale Price",id="50-59",data=list_parse(firsteast3)),
+                                             list(name="Resale Price",id="60-69",data=list_parse(secondeast3)),
+                                             list(name="Resale Price",id="70 & above",data=list_parse(thirdeast3)),
+                                             list(name="Resale Price",id="50-59",data=list_parse(firstnorth3)),
+                                             list(name="Resale Price",id="60-69",data=list_parse(secondnorth3)),
+                                             list(name="Resale Price",id="70 & above",data=list_parse(thirdnorth3)),
+                                             list(name="Resale Price",id="50-59",data=list_parse(firstnorthe3)),
+                                             list(name="Resale Price",id="60-69",data=list_parse(secondnorthe3)),
+                                             list(name="Resale Price",id="70 & above",data=list_parse(thirdnorthe3)),
+                                             list(name="Resale Price",id="40-49",data=list_parse(firstwest3)),
+                                             list(name="Resale Price",id="50-59",data=list_parse(secondwest3)),
+                                             list(name="Resale Price",id="60-69",data=list_parse(thirdwest3)),
+                                             list(name="Resale Price",id="70 & above",data=list_parse(forthwest3))
+    ))
+
+FlatLease
+```
+
+#### xi. Insight 
+#### HDB resale flat may face challenges for investment purpose 
+
+There are several factors that can affect the investment opportunity for HDB resale flat in Singapore and some of the possible factors are remaining lease years, location, surroundings and how much the land can yield. People go for investment to sell high and buy low. The average resale price between 1990 and 2017 line graph shows that HDB resale flat is volatile. When the resale price of HDB yield at a higher price, it would be a good opportunity to sell high and buy low. 
+
+The first possible factor is remaining lease year where HDB Flats have a life span of 99 years and the remaining lease years will not be renewed every time a new owner buy the resale flat. The life span will continuously to decrease even if the owner of the flat changes. Normally, if the flat is beyond 40 years old, the value of the flat will depreciate more quickly causing it to be worthless to sell off as it will not bring any profit, but it will cause a breakeven or suffer loss. Remaining lease year for HDB resale flats pie chart shows that there are higher percentage of higher remaining lease of HDB resale flat which indicates that the resale price can still be possibly reasonable or high. 
+
+The second factor is location. Even though the remaining lease period of the flat is decreasing, the price of resale price can remain at a reasonable value or appreciate. For example, the central region of Singapore, where the price of resale flat in that region is always high because of the infrastructure, convenience and nearer to town area. The third factor, surroundings. The surroundings can consist of shopping malls, supermarkets, Mass Rapid Transport (MRT) Station and schools near the resale flat will have a greater demand. The forth possible factor is the cost of the land yield. Since, the demand is high, the cost of the land will also be high, making the resale price to be high too. 
+
+In addition, HDB resales flats does not have to wait for long period like BTO. It will more probably take a few months or less than a year to have the flat. Also, consumer of resale flat can pick mature location. HDB resale flats value are depreciating slower because of government intervention by providing upgrade programmes for flat. This would eventually increase or maintain the resale price of the flat. 
+
+To analyse futher, number of HDB resale flats in each region can be drill down to the number of remaining lease year left for HDB resale flats in each region. This can give a deeper understanding of the volume of resale flats’ value are appreciating and depreciating at a faster or slower. For example, in the North region, it has higher number of flats that have remaining lease year of more than 70 years which shows that the flats are still worth a reasonable price. However, consumer would want to know the price of such remaining lease by year that is above 70 years. It can further drill down to the average resale price of remaining lease by flat type. This can give the consumer a rough idea of how much the resale flat of that specific region with higher remaining lease can be yield. 
+
+However, HDB resale flat faces challenges for investment opportunity because of Build-To-Order (BTO) flats rising in Singapore. BTO flats are heavily subsidised, making the cost of flat low. It requires less cash for down payment using the Staggered Down Payment Scheme. This attract young couples who is both cash and Central Provident Fund (CPF) strapped. Unlike resale flat, BTO means a full 99 -years lease, thus it will not be a concerned or worrying about the flat being en-block as the government actually planned 5 years before hand for BTO flats. Other points about BTO flats is that there are plenty of grand available for first timer purchasers, especially the younger generation and there is a possibility of enjoying a gain when BTO flats are sold off after fulfilling the Minimum Occupation Period (MOP) of 5 years. 
+
+This pose a challenge to HDB resale market as even though BTO might not be located at a mature location, the attractive price and scheme will cause higher demand for BTO flats. Therefore, HDB resale flats can be a challenge to find investment opportunity because it depends on the volatility of the market, government intervention as well as the demand for resale flats. 
+This can be useful to the company because they can focus on helping to sell resale flats that can be sold of at a higher price by looking at the remaining lease of the flat that is higher and location of the resale flat. The company can also advice consumer about resale flat that it should be considered for having a place to stay or non-investment purpose. However, some consumer prefers to invest in resale flat and the company can provide information on the right time to sell off resale flats for consumer to earn profit.
+
+This can be useful to the consumer because they are able to identify whether it is a right time or not the idle time to sell their resale flats by looking at the remaining lease of the flat as well as other factors that can affect the HDB resale flat price. 
+
+
+## Headline 3 - Predictive Model
+### Description of Model
+Arima model is a forecasting model that utilize past data to make predictions. It includes time series analysis to forecast a quantity into the future and explaining its historical patterns. 
+
+Flow of the analysis:
+*Plot, examine, and prepare series for modeling
+*Extract the seasonality component from the time series
+*Test for stationarity and apply appropriate transformations
+*Choose the order of an ARIMA model
+*Forecast the series
+
+#### i. Loading neceassary packages and dataset
+
+```{r}
+#Load Packages
+library('ggplot2')
+library('forecast')
+library('tseries')
+
+#Load HDB Resale Prices data
+#Dateframe the data
+hdb<-read.csv("HDB Resale Prices.csv")
+summary(hdb)
+hdb1<-data.frame(hdb)
+str(hdb1)
+```
+
+#### ii. Plot and examine graph 
+
+```{r echo=TRUE}
+#Plot graph using ggplot
+#Plot graph that show the average resale flat price from year 1990
+options(scipen=10000)
+monthly = aggregate(resale_price~month, FUN=mean, data=hdb1)
+monthly_ts = ts(monthly$resale_price,start = c(1990,10), frequency=12)
+plot(monthly_ts, xlab="Year", ylab="Average Resale Flat Price")
+```
+
+#### iii. Decompose Data 
+Decomposing time series will capture the historical patterns in the series. It includes the components of seasonality, trend, cycle and irregularity.
+
+```{r echo=TRUE}
+#Seasonal component refers to fluctuations in the data related to calendar cycles. 
+#Cycle component consists of decreasing or increasing patterns that are not seasonal.
+#Remainder is component that can't be attributed to seasonal or trend components 
+decomp = stl(monthly_ts, s.window="periodic")
+deseasonal_cnt <- seasadj(decomp)
+plot(decomp)
+```
+
+#### iv. Stationary 
+The augmented Dickey-Fuller (ADF) test is a formal statistical test for stationarity. A stationary (time) series is one whose statistical properties such as the mean, variance and autocorrelation are all constant over time. While a non-stationary series is one whose statistical properties change over time. Non-stationary data should be first converted into stationary data (for example by trend removal), so that further statistical analysis can be done on the de-trended stationary data. For instance, the non-stationary data will always underestimate the mean and variance in future periods.
+
+```{r echo=TRUE}
+Acf(monthly_ts, main='')
+Pacf(monthly_ts, main='')
+```
+
+#### iv. Stationary 
+We started with the order of d = 1 and re-evaluate whether further differencing is needed. The augmented Dickey-Fuller (ADF) test on differenced data rejects the null hypotheses of non-stationarity. Plotting the differenced series, we see an oscillating pattern around 0 with no visible strong trend. This suggests that differencing of order 1 terms is sufficient and should be included in the model. 
+```{r echo=TRUE}
+count_d1 = diff(deseasonal_cnt, differences = 1)
+plot(count_d1)
+adf.test(count_d1, alternative = "stationary")
+Acf(count_d1, main='ACF for Differenced Series')
+Pacf(count_d1, main='PACF for Differenced Series')
+auto.arima(deseasonal_cnt, seasonal=FALSE)
+
+fit<-auto.arima(deseasonal_cnt, seasonal=FALSE)
+tsdisplay(residuals(fit), lag.max=45, main='(1,1,1) Model Residuals')
+arima(x = deseasonal_cnt, order = c(1, 1, 1))
+fit2 = arima(deseasonal_cnt, order=c(1,1,17))
+fit2
+arima(x = deseasonal_cnt, order = c(1, 1, 17))
+tsdisplay(residuals(fit2), lag.max=45, main='Seasonal Model Residuals')
+fcast <- forecast(fit2, h=36)
+plot(fcast)
+
+fit_w_seasonality = auto.arima(deseasonal_cnt, seasonal=TRUE)
+fit_w_seasonality
+seas_fcast <- forecast(fit_w_seasonality, h=36)
+plot(seas_fcast)
+
